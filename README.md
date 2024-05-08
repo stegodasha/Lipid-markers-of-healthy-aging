@@ -1,4 +1,4 @@
-# Lipid Markers of Healthy Aging Project
+# Lipid Markers of Healthy Aging Project <a href=""><img src="img/fat.png" align="right" width="150" ></a>  <h3>
 
 This repository contains the research project conducted for the Bioinformatics Institute.
 The analysis is performed in the R programming language.
