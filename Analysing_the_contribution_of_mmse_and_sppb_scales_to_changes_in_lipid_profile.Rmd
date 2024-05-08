@@ -1,0 +1,282 @@
+---
+title: "Analysing the contribution of mmse and sppb scales to changes in lipid profile"
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, tidy.opts=list(width.cutoff=60))
+```
+
+### Upload the libraries:
+
+```{r}
+library(psych)
+library(ggplot2)
+library(tidyr)
+library(patchwork)
+library(rstatix)
+```
+
+### Upload the data:
+
+```{r}
+scales <- read.csv("scales_small_charlson.csv", header= FALSE , stringsAsFactors= FALSE)
+lipids <- read.csv("lipids_small_charlson.csv", header= FALSE , stringsAsFactors= FALSE )
+colnames(lipids) <- lipids[1,]
+lipids <- lipids[-1,]
+colnames(scales) <- scales[1,]
+scales <- scales[-1,]
+scales_lipids <- merge(scales, lipids, by = "MS ID")
+```
+
+# Let's evaluate the correlation between scales and demographic factors:
+
+### Let’s convert the data to the required type:
+
+```{r}
+columns_to_convert <- which(names(scales_lipids) != 'sex' & names(scales_lipids) != 'MS ID')
+scales_lipids[, columns_to_convert] <- lapply(scales_lipids[, columns_to_convert], as.numeric)
+```
+
+### Let's convert gender data to a numeric type:
+
+```{r}
+names(scales_lipids)[names(scales_lipids) == "sex"] <- "gender"
+names(scales_lipids)[names(scales_lipids) == "(-1)Charlson"] <- "charlson"
+scales_lipids$gender <- ifelse(scales_lipids$gender == "f", 0, 1)
+```
+
+## Let's draw a correlation plot:
+
+```{r}
+corPlot(scales_lipids[, c("mmse", "fab", "bartel", "sppb", "age", "gender","charlson" )], 
+        cex = 1.2, 
+        stars = TRUE,
+        alpha = 0.25,
+        cex.axis = 0.8,
+        main = "Correlations between scales \n and demographic characteristics",
+        cex.main = 1)
+```
+
+### Scales are highly correlated with each other. In particular, the mmse scale is highly correlated with the sppb scale. Therefore, let us try to determine the contribution of the physical state of patients according to the sppb scale and the contribution of the cognitive state according to the mmse scale to the apparent changes in the lipid profile.
+
+# Let's look at the dependence of the mmse scale on the sppb scale:
+
+```{r}
+ggplot(scales_lipids, aes(x=sppb)) +
+  geom_point(aes(y=mmse), 
+             shape=16, 
+             size= 2, 
+             color=adjustcolor("Blue"),
+             alpha = 0.5) +
+  labs(x="Sppb", y="Mmse")+
+  theme(plot.title = element_text(hjust = 0.5, size = 15),
+        axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        legend.text = element_text(size = 15)) 
+```
+
+### The resulting graph shows that among patients without dementia (high values according to the mmse scale) we can distinguish two groups of patients with good and poor physical condition according to the sppb scale. Thus, we can remove the influence of mmse on the results and evaluate only the contribution of the sppb scale. 
+
+### However, in patients among patients with dementia, we cannot distinguish two groups with poor and good physical condition because patients with dementia cannot pass the sppb scale test.
+
+### Therefore, in this case, to try to remove the influence of the sppb scale on the resulting differences in the lipid profile when dividing the groups according to the mmse scale we can try to divide the group of patients with poor physical condition into patients with and without dementia.
+
+# Let's remove the influence of the mmse scale and look at the differences in lipid profile when comparing the groups using the sppb scale
+
+### Let's remove samples with dementia on mmse:
+
+```{r}
+mmse_morethen24 <- scales_lipids[scales_lipids$mmse >= 24, ]
+```
+
+### Let's create a new dataset with the 100 worse values according to sppb:
+
+```{r}
+n_rows_sppb <- 103
+sorted_sppb <- mmse_morethen24[order(mmse_morethen24$sppb), ]
+worse_sppb <- sorted_sppb[1:n_rows_sppb, ]
+worse_sppb$sppb_asthenia <- rep("Asthenia", 103)
+```
+
+### Let's create a new dataset with the 100 best values:
+
+```{r}
+sorted_sppb_best <- mmse_morethen24[order(mmse_morethen24$sppb, decreasing = TRUE), ]
+best_sppb <- sorted_sppb_best[1:n_rows_sppb, ]
+best_sppb$sppb_asthenia <- rep("Healthy", 103)
+```
+
+### We combine both dataframes into one:
+
+```{r}
+sppb_no_mmse <- rbind(worse_sppb, best_sppb)
+
+sppb_no_mmse_long <- pivot_longer(sppb_no_mmse, cols = 10:230, names_to ="lipid_features", values_to = "values")
+```
+
+## Distribution of sppb in data:
+
+```{r}
+ggplot(mmse_morethen24, aes(x = sppb)) +
+  geom_histogram(aes(fill = ifelse(sppb %in% best_sppb$sppb, "Healthy patients", 
+                                   ifelse(sppb %in% worse_sppb$sppb, "Patiens with austhenia", "Data not included \n in analysis"))),
+                 color = "black", bins = 20, stat = "count") +
+  scale_fill_manual(values = c("#CDC9C9", "darkolivegreen3", "#EE6363")) +
+  labs(x = "Sppb values", y = "Count", fill = "Group") +
+  theme(axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 15)) +
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15))
+```
+
+## Distribution of mmse in data:
+
+```{r}
+ggplot(sppb_no_mmse, aes(x = mmse, fill = sppb_asthenia)) +
+  geom_histogram(color = "black", bins = 20, stat = "count") +
+  scale_fill_manual(values = c("#EE6363", "darkolivegreen3"), labels = c("Patients with asthenia", "Healthy patients")) +  
+  labs(x = "MMSE values", y = "Count", fill = "Group") +  
+  theme(axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 15),
+        axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15))
+
+```
+
+## Let's conduct a t-test with the Benjamini-Hochberg correction
+
+```{r}
+stat.test_sppb_no_mmse <- sppb_no_mmse_long %>%
+  group_by(lipid_features) %>%
+  t_test(values ~ sppb_asthenia)%>%
+  adjust_pvalue(method = "BH") %>%
+  add_significance()
+print(stat.test_sppb_no_mmse)
+```
+
+## Let's build the p-value distribution:
+
+```{r}
+ggplot(data = stat.test_sppb_no_mmse, aes(x = p.adj)) +
+  geom_histogram(binwidth = 0.05, fill = "Pink", color = "black", bins = 15) +
+  labs(x = "Adjusted p-value", y = "Frequency")+
+  theme(axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        legend.text = element_text(size = 15))+  
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15)) 
+```
+
+## Let's look at the types of lipids for which significant differences emerged:
+
+```{r}
+stat.test_sppb_no_mmse_significant <- stat.test_sppb_no_mmse[stat.test_sppb_no_mmse$p.adj <= 0.05, ]
+print(stat.test_sppb_no_mmse_significant)
+```
+
+### We see that without the contribution of mmse the groups of patients according to the sppb scale do not differ from each other in lipid profile.
+
+# Let's remove the influence of the sppb scale and look at the differences in lipid profile when comparing groups using the mmse scale
+
+### Let's remove healthy samples according to sppb scale:
+
+```{r}
+sppb_lessthen7 <- scales_lipids[scales_lipids$sppb <= 7, ]
+sppb_lessthen7 <- sppb_lessthen7[sppb_lessthen7$sppb > 0, ]
+```
+
+### Let's create a new dataset with the 103 worse values according to mmse:
+
+```{r}
+n_rows <- 103
+sorted_mmse <- sppb_lessthen7[order(sppb_lessthen7$mmse), ]
+worse_mmse <- sorted_mmse[1:n_rows, ]
+worse_mmse$mmse_dementia <- rep("Dementia", 103)
+```
+
+### Let's create a new dataset with the 103 best values according to mmse:
+
+```{r}
+sorted_mmse_best <- sppb_lessthen7[order(sppb_lessthen7$mmse, decreasing = TRUE), ]
+best_mmse <- sorted_mmse_best[1:n_rows, ]
+best_mmse$mmse_dementia <- rep("Healthy", 103)
+```
+
+### We combine both dataframes into one:
+
+```{r}
+mmse_no_sppb <- rbind(worse_mmse, best_mmse)
+
+mmse_no_sppb_long <- pivot_longer(mmse_no_sppb, cols = 10:230, names_to ="lipid_features", values_to = "values")
+```
+
+## Distribution of mmse in data:
+
+```{r}
+ggplot(sppb_lessthen7, aes(x = mmse)) +
+  geom_histogram(aes(fill = ifelse(mmse %in% best_mmse$mmse, "Healthy patients", 
+                                   ifelse(mmse %in% worse_mmse$mmse, "Patiens with dementia", "Data not included \n in analysis"))),
+                 color = "black", bins = 20, stat = "count") +
+  scale_fill_manual(values = c("#CDC9C9", "darkolivegreen3", "#EE6363")) +
+  labs(x = "Mmse values", y = "Count", fill = "Group") +
+  theme(axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 15)) +
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15))
+```
+
+## Distribution of sppb in data:
+
+```{r}
+ggplot(mmse_no_sppb, aes(x = sppb, fill = mmse_dementia)) +
+  geom_histogram(color = "black", bins = 20, stat = "count") +
+  scale_fill_manual(values = c("#EE6363", "darkolivegreen3"), labels = c("Patients with dementia", "Healthy patients")) +  
+  labs(x = "Sppb values", y = "Count", fill = "Group") +  
+  theme(axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 15),
+        axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15))
+```
+
+## Let's conduct a t-test with the Benjamini-Hochberg correction:
+
+```{r}
+stat.test_mmse_no_sppb <- mmse_no_sppb_long %>%
+  group_by(lipid_features) %>%
+  t_test(values ~ mmse_dementia)%>%
+  adjust_pvalue(method = "BH") %>%
+  add_significance()
+print(stat.test_mmse_no_sppb)
+```
+
+### Let's build the p-value distribution:
+
+```{r}
+ggplot(data = stat.test_mmse_no_sppb, aes(x = p.adj)) +
+  geom_histogram(binwidth = 0.05, fill = "#B0E2FF", color = "black", bins = 15) +
+  labs(x = "Adjusted p-value", y = "Frequency")+
+  theme(axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        legend.text = element_text(size = 15))+  
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15)) 
+```
+
+## Let's look at the types of lipids for which significant differences emerged:
+
+```{r}
+stat.test_mmse_no_sppb_significant <- stat.test_mmse_no_sppb[stat.test_mmse_no_sppb$p.adj <= 0.05, ]
+print(stat.test_mmse_no_sppb_significant)
+```
+
+### Thus, changes in the lipid profile when comparing patient groups according to mmse are not due to the influence of the sppb scale. 
