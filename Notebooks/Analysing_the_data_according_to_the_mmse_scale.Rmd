@@ -12,14 +12,19 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, tidy = TRUE
 ### Upload the libraries:
 
 ```{r}
-library(rstatix)
-library(tidyr)
-library(dplyr)
-library(ggplot2)
-library(patchwork)
-library(ggpubr)
-library(tidyverse)
-library(ggpmisc)
+install_and_load <- function(package_name) {
+  if (!require(package_name, character.only = TRUE)) {
+    install.packages(package_name)
+    library(package_name, character.only = TRUE)
+  }
+}
+
+packages <- c("rstatix", "tidyr", "dplyr", "ggplot2", 
+              "patchwork", "ggpubr", "tidyverse", "ggpmisc")
+
+for (package in packages) {
+  install_and_load(package)
+}
 ```
 
 ### Upload the data:
