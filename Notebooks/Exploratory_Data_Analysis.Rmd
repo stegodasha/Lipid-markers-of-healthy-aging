@@ -12,9 +12,20 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, tidy = TRUE
 ### Upload the libraries:
 
 ```{r}
-library(ggplot2)
-library(patchwork)
-library(psych)
+if (!require("ggplot2", character.only = TRUE)) {
+  install.packages("ggplot2")
+  library(ggplot2)
+}
+
+if (!require("patchwork", character.only = TRUE)) {
+  install.packages("patchwork")
+  library(patchwork)
+}
+
+if (!require("psych", character.only = TRUE)) {
+  install.packages("psych")
+  library(psych)
+}
 ```
 
 ### Upload the data:
