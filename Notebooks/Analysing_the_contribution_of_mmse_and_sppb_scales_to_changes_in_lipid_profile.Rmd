@@ -11,11 +11,18 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, tidy = TRUE
 ### Upload the libraries:
 
 ```{r}
-library(psych)
-library(ggplot2)
-library(tidyr)
-library(patchwork)
-library(rstatix)
+install_and_load <- function(package_name) {
+  if (!require(package_name, character.only = TRUE)) {
+    install.packages(package_name)
+    library(package_name, character.only = TRUE)
+  }
+}
+
+packages <- c("psych", "ggplot2", "tidyr", "patchwork", "rstatix")
+
+for (package in packages) {
+  install_and_load(package)
+}
 ```
 
 ### Upload the data:
