@@ -11,15 +11,19 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, tidy = TRUE
 ### Upload the libraries:
 
 ```{r}
-library(gplots)
-library(ggplot2)
-library(RColorBrewer)
-library(patchwork)
-library(dplyr)
-library(psych)
-library(tidyr)
-library(rstatix)
-library(ggpubr)
+install_and_load <- function(package_name) {
+  if (!require(package_name, character.only = TRUE)) {
+    install.packages(package_name)
+    library(package_name, character.only = TRUE)
+  }
+}
+
+packages <- c("gplots", "ggplot2", "RColorBrewer", "patchwork", 
+              "dplyr", "psych", "tidyr", "rstatix", "ggpubr")
+
+for (package in packages) {
+  install_and_load(package)
+}
 ```
 
 ### Upload the data:
